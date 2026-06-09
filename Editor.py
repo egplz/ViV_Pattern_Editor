@@ -64,6 +64,9 @@ class ChartEditor(QGraphicsView):
                 y,
                 QPen(QColor(255, 0, 0), 2)
             )
+            if measure < TOTAL_MEASURES:
+                text = self.scene.addText(str(measure))
+                text.setPos(-40, y)
 
         # 세부 격자
         for measure in range(TOTAL_MEASURES):
