@@ -43,6 +43,10 @@ class ChartEditor(QGraphicsView):
 
         self.notes = {}
 
+        self.dragging = False
+        self.drag_lane = None
+        self.drag_start = None
+
         self.draw_grid()
 
     def draw_grid(self):
@@ -82,6 +86,23 @@ class ChartEditor(QGraphicsView):
                     y,
                     QPen(QColor(220, 220, 220))
                 )
+    
+    def add_note(self, measure, step, lane):
+
+        key = (measure, step, lane)
+
+        if key in self.notes:
+            return
+
+        note = NoteItem(
+            lane,
+            measure,
+            step
+        )
+
+        self.scene.addItem(note)
+
+        self.notes[key] = note
 
     def mousePressEvent(self, event):
         pos = self.mapToScene(event.pos())
@@ -100,11 +121,15 @@ class ChartEditor(QGraphicsView):
 
         if event.button() == Qt.MouseButton.LeftButton:
 
-            if key not in self.notes:
-                note = NoteItem(lane, measure, step)
+            self.dragging = True
+            self.drag_lane = lane
+            self.drag_start = (measure, step)
 
-                self.scene.addItem(note)
-                self.notes[key] = note
+            self.add_note(
+                measure,
+                step,
+                lane
+            )
 
         elif event.button() == Qt.MouseButton.RightButton:
 
@@ -113,6 +138,59 @@ class ChartEditor(QGraphicsView):
                 del self.notes[key]
 
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+
+        if not self.dragging:
+            return
+
+        pos = self.mapToScene(event.pos())
+
+        lane = int(pos.x() // CELL_WIDTH)
+
+        if lane != self.drag_lane:
+            return
+
+        global_step = int(pos.y() // CELL_HEIGHT)
+
+        measure = global_step // SUBDIVISION + 1
+        step = global_step % SUBDIVISION
+
+        start_measure, start_step = self.drag_start
+
+        start_global = (
+            (start_measure - 1) * SUBDIVISION
+            + start_step
+        )
+
+        current_global = (
+            (measure - 1) * SUBDIVISION
+            + step
+        )
+
+        low = min(start_global, current_global)
+        high = max(start_global, current_global)
+
+        for g in range(low, high + 1):
+
+            m = g // SUBDIVISION + 1
+            s = g % SUBDIVISION
+
+            self.add_note(
+                m,
+                s,
+                self.drag_lane
+            )
+
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+
+        self.dragging = False
+        self.drag_lane = None
+        self.drag_start = None
+
+        super().mouseReleaseEvent(event)
 
     def save_chart(self, path):
         chart = {}
